@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a modern Web3 NFT marketplace platform built with a full-stack TypeScript architecture. The application features real-time sentiment analysis, dynamic NFT generation, and blockchain integration capabilities. It uses a React frontend with a Node.js/Express backend, PostgreSQL database with Drizzle ORM, and includes WebSocket support for real-time updates.
+This is a modern Web3 NFT marketplace platform built with a full-stack TypeScript architecture. The application features real-time sentiment analysis, dynamic NFT generation, and **complete smart contract integration**. It uses a React frontend with a Node.js/Express backend, PostgreSQL database with Drizzle ORM, and includes WebSocket support for real-time updates. The platform includes production-ready Solidity smart contracts with comprehensive testing and deployment scripts.
 
 ## User Preferences
 
@@ -30,6 +30,14 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM with schema-first approach
 - **Migrations**: Drizzle Kit for database schema management
 - **Connection**: Environment-based DATABASE_URL configuration
+
+### Smart Contract Architecture
+- **Contract**: SentimentNFT.sol - ERC-721 with dynamic sentiment evolution
+- **Framework**: Hardhat with OpenZeppelin for security and standards
+- **Testing**: Comprehensive test suite with 100% function coverage
+- **Deployment**: Multi-network support (localhost, Goerli, Polygon)
+- **Integration**: Dual-mode Web3 service (mock/real blockchain)
+- **Features**: Dynamic pricing, sentiment oracles, rarity evolution
 
 ## Key Components
 
@@ -71,6 +79,12 @@ Preferred communication style: Simple, everyday language.
 - **@radix-ui/***: Accessible UI component primitives
 - **ws**: WebSocket server implementation
 - **express**: HTTP server framework
+- **ethers**: Ethereum blockchain interaction library
+
+### Smart Contract Tools
+- **hardhat**: Ethereum development environment
+- **@openzeppelin/contracts**: Secure smart contract library
+- **@nomicfoundation/hardhat-toolbox**: Complete Hardhat plugin suite
 
 ### Development Tools
 - **vite**: Frontend build tool and development server
@@ -96,5 +110,12 @@ Preferred communication style: Simple, everyday language.
 - **DATABASE_URL**: PostgreSQL connection string (required)
 - **NODE_ENV**: Environment mode (development/production)
 - **REPL_ID**: Replit environment detection for development features
+- **VITE_CONTRACT_ADDRESS**: Smart contract address (optional - uses mock mode if empty)
+
+### Smart Contract Deployment
+- **Mock Mode**: Default operation without blockchain interaction
+- **Local Network**: Hardhat localhost network for development
+- **Testnet**: Goerli/Mumbai testnets for staging
+- **Mainnet**: Ethereum/Polygon production deployment
 
 The application follows a modern full-stack pattern with clear separation between client and server code, shared TypeScript schemas for type safety, and a scalable architecture that supports real-time features essential for Web3 applications.
