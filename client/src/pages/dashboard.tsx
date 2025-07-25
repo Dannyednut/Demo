@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { SentimentChart } from "@/components/ui/sentiment-chart";
-import { NftPreview } from "@/components/ui/nft-preview";
-import { WalletModal } from "@/components/ui/wallet-modal";
-import { MarketStats } from "@/components/ui/market-stats";
-import { useWebSocket } from "@/hooks/use-websocket";
+import { SentimentChart } from "../components/ui/sentiment-chart";
+import { NftPreview } from "../components/ui/nft-preview";
+import { WalletModal } from "../components/ui/wallet-modal";
+import { MarketStats } from "../components/ui/market-stats";
+import { useWebSocket } from "../hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { TrendingUp, Users, Palette, Gem, Wallet } from "lucide-react";
@@ -23,8 +23,7 @@ export default function Dashboard() {
   const [isMinting, setIsMinting] = useState(false);
   const [nftForm, setNftForm] = useState({
     name: "",
-    description: "",
-    mintPrice: "0.05"
+    description: ""
   });
 
   const { toast } = useToast();
@@ -93,7 +92,8 @@ export default function Dashboard() {
         { progress: 100, message: "NFT minted successfully!" }
       ];
 
-      for (const [index, step] of steps.entries()) {
+      for (let index = 0; index < steps.length; index++) {
+        const step = steps[index];
         await new Promise(resolve => setTimeout(resolve, 2000));
         setMintingProgress(step.progress);
         
@@ -103,7 +103,6 @@ export default function Dashboard() {
             name: nftForm.name,
             description: nftForm.description,
             ownerAddress: walletAddress,
-            mintPrice: parseFloat(nftForm.mintPrice),
             imageUrl: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=800",
             attributes: {
               background: "Cosmic Blue",
@@ -119,7 +118,7 @@ export default function Dashboard() {
           });
 
           // Reset form
-          setNftForm({ name: "", description: "", mintPrice: "0.05" });
+          setNftForm({ name: "", description: "" });
         }
       }
     } catch (error) {
@@ -313,18 +312,26 @@ export default function Dashboard() {
                       />
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-3">Mint Price</label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          placeholder="0.05"
-                          step="0.01"
-                          value={nftForm.mintPrice}
-                          onChange={(e) => setNftForm(prev => ({ ...prev, mintPrice: e.target.value }))}
-                          className="bg-slate-800/50 border-slate-600 text-white placeholder-slate-400 focus:border-green-400 pr-16"
-                        />
-                        <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400">ETH</span>
+                    {/* Dynamic pricing info */}
+                    <div className="glass-card p-4 rounded-lg bg-slate-800/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-slate-300 text-sm">Auto-Calculated Mint Price</span>
+                        <span className="text-xs text-slate-400">Based on Market Sentiment</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white font-bold text-lg">
+                          {(() => {
+                            const sentiment = currentMarketData?.marketSentiment || 0.5;
+                            const sentimentMultiplier = 1 + (sentiment * 2);
+                            const basePrice = 0.01 + (sentiment * 0.49);
+                            return Number((basePrice * sentimentMultiplier).toFixed(4));
+                          })()} ETH
+                        </span>
+                        <div className="text-right">
+                          <div className={`text-sm ${getSentimentColor(currentMarketData?.marketSentiment || 0.5)}`}>
+                            {getSentimentText(currentMarketData?.marketSentiment || 0.5)} Market
+                          </div>
+                        </div>
                       </div>
                     </div>
                     

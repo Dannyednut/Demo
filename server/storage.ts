@@ -126,7 +126,11 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      walletAddress: insertUser.walletAddress || null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -143,9 +147,31 @@ export class MemStorage implements IStorage {
 
   async createNft(insertNft: InsertNft): Promise<Nft> {
     const id = randomUUID();
+    
+    // Calculate mint price based on current market sentiment
+    const latestSentiment = await this.getLatestSentimentData();
+    const baseSentiment = latestSentiment?.marketSentiment || 0.5;
+    
+    // Dynamic pricing based on sentiment (0.01 to 0.5 ETH range)
+    const sentimentMultiplier = 1 + (baseSentiment * 2); // 1x to 3x multiplier
+    const basePrice = 0.01 + (baseSentiment * 0.49); // 0.01 to 0.5 ETH
+    const finalPrice = Number((basePrice * sentimentMultiplier).toFixed(4));
+    
+    // Determine rarity tier based on sentiment
+    let rarityTier = "common";
+    if (baseSentiment > 0.8) rarityTier = "legendary";
+    else if (baseSentiment > 0.6) rarityTier = "ultra_rare";
+    else if (baseSentiment > 0.4) rarityTier = "rare";
+    
     const nft: Nft = { 
-      ...insertNft, 
+      ...insertNft,
       id,
+      mintPrice: finalPrice,
+      currentSentiment: baseSentiment,
+      rarityTier,
+      description: insertNft.description || null,
+      imageUrl: insertNft.imageUrl || null,
+      attributes: insertNft.attributes || {},
       createdAt: new Date(),
     };
     this.nfts.set(id, nft);
@@ -155,7 +181,7 @@ export class MemStorage implements IStorage {
       action: "minted",
       nftId: id,
       nftName: nft.name,
-      price: nft.mintPrice,
+      price: finalPrice,
       toAddress: nft.ownerAddress,
       fromAddress: null,
     });
@@ -191,6 +217,12 @@ export class MemStorage implements IStorage {
       ...insertData,
       id: randomUUID(),
       timestamp: new Date(),
+      btcPrice: insertData.btcPrice || null,
+      ethPrice: insertData.ethPrice || null,
+      solPrice: insertData.solPrice || null,
+      volume24h: insertData.volume24h || null,
+      activeTraders: insertData.activeTraders || null,
+      nftsMinted: insertData.nftsMinted || null,
     };
     this.sentimentData.push(data);
     return data;
@@ -207,6 +239,10 @@ export class MemStorage implements IStorage {
       ...insertActivity,
       id: randomUUID(),
       timestamp: new Date(),
+      nftId: insertActivity.nftId || null,
+      price: insertActivity.price || null,
+      fromAddress: insertActivity.fromAddress || null,
+      toAddress: insertActivity.toAddress || null,
     };
     this.marketActivity.unshift(activity);
     return activity;
@@ -220,7 +256,13 @@ export class MemStorage implements IStorage {
 
   async createCollection(insertCollection: InsertCollection): Promise<Collection> {
     const id = randomUUID();
-    const collection: Collection = { ...insertCollection, id };
+    const collection: Collection = { 
+      ...insertCollection, 
+      id,
+      volume: insertCollection.volume || 0,
+      floorPrice: insertCollection.floorPrice || null,
+      totalItems: insertCollection.totalItems || null
+    };
     this.collections.set(id, collection);
     return collection;
   }

@@ -1,8 +1,9 @@
 interface NftPreviewProps {
   sentiment: number;
+  calculatedPrice?: number;
 }
 
-export function NftPreview({ sentiment }: NftPreviewProps) {
+export function NftPreview({ sentiment, calculatedPrice }: NftPreviewProps) {
   const getSentimentText = (sentiment: number) => {
     if (sentiment > 0.7) return "Bullish";
     if (sentiment > 0.5) return "Neutral";
@@ -29,6 +30,14 @@ export function NftPreview({ sentiment }: NftPreviewProps) {
     return "text-gray-400";
   };
 
+  // Calculate dynamic price based on sentiment if not provided
+  const getCalculatedPrice = (sentiment: number) => {
+    if (calculatedPrice) return calculatedPrice;
+    const sentimentMultiplier = 1 + (sentiment * 2);
+    const basePrice = 0.01 + (sentiment * 0.49);
+    return Number((basePrice * sentimentMultiplier).toFixed(4));
+  };
+
   return (
     <div className="relative aspect-square bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden animate-float">
       <img
@@ -43,7 +52,7 @@ export function NftPreview({ sentiment }: NftPreviewProps) {
       {/* Sentiment Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent">
         <div className="absolute bottom-4 left-4 right-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
             <div className="glass-card px-3 py-1 rounded-full">
               <span className={`text-sm font-medium ${getSentimentColor(sentiment)}`}>
                 {getSentimentText(sentiment)}
@@ -52,6 +61,16 @@ export function NftPreview({ sentiment }: NftPreviewProps) {
             <div className="glass-card px-3 py-1 rounded-full">
               <span className={`text-sm ${getRarityColor(sentiment)}`}>
                 {getRarityText(sentiment)}
+              </span>
+            </div>
+          </div>
+          
+          {/* Dynamic Price Display */}
+          <div className="glass-card px-3 py-2 rounded-lg w-full">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-300 text-sm">Mint Price</span>
+              <span className="text-white font-bold text-lg">
+                {getCalculatedPrice(sentiment)} ETH
               </span>
             </div>
           </div>

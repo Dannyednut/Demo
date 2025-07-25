@@ -18,6 +18,7 @@ export const nfts = pgTable("nfts", {
   ownerAddress: text("owner_address").notNull(),
   mintPrice: real("mint_price").notNull(),
   currentSentiment: real("current_sentiment").notNull().default(0.5),
+  rarityTier: text("rarity_tier").default("common"), // common, rare, ultra_rare, legendary
   attributes: jsonb("attributes").default({}),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -60,6 +61,9 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertNftSchema = createInsertSchema(nfts).omit({
   id: true,
   createdAt: true,
+  mintPrice: true,
+  currentSentiment: true,
+  rarityTier: true,
 });
 
 export const insertSentimentDataSchema = createInsertSchema(sentimentData).omit({

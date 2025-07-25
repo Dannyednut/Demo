@@ -60,7 +60,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const nft = await storage.createNft({
         ...validatedData,
         attributes: validatedData.attributes || {},
-        currentSentiment: Math.random(), // Random initial sentiment
       });
       res.json(nft);
     } catch (error) {
