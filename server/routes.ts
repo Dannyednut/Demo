@@ -103,17 +103,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Simulate real-time data updates
+  // Real-time data updates with optional real sentiment
   setInterval(async () => {
-    // Generate new sentiment data
-    const baseValue = 0.6 + (Math.sin(Date.now() / 10000) * 0.2);
-    const noise = (Math.random() - 0.5) * 0.1;
-    const sentiment = Math.max(0, Math.min(1, baseValue + noise));
+    let sentiment: number;
+    let btcPrice: number;
+    let ethPrice: number;
+
+    // Use real sentiment if enabled
+    if (process.env.USE_REAL_SENTIMENT === 'true') {
+      try {
+        // Fetch real sentiment data
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Calculate sentiment from price changes
+          const btcChange = data.bitcoin?.usd_24h_change || 0;
+          const ethChange = data.ethereum?.usd_24h_change || 0;
+          const avgChange = (btcChange + ethChange) / 2;
+          
+          // Convert price change to sentiment (0-1 scale)
+          sentiment = Math.max(0, Math.min(1, 0.5 + (avgChange / 20)));
+          btcPrice = data.bitcoin?.usd || 45000;
+          ethPrice = data.ethereum?.usd || 2800;
+        } else {
+          throw new Error('CoinGecko API not available');
+        }
+      } catch (error) {
+        console.warn('Using simulated sentiment data:', error);
+        // Fallback to simulation
+        const baseValue = 0.6 + (Math.sin(Date.now() / 10000) * 0.2);
+        const noise = (Math.random() - 0.5) * 0.1;
+        sentiment = Math.max(0, Math.min(1, baseValue + noise));
+        btcPrice = 43247 + (Math.random() - 0.5) * 1000;
+        ethPrice = 2543 + (Math.random() - 0.5) * 100;
+      }
+    } else {
+      // Use simulated data (default)
+      const baseValue = 0.6 + (Math.sin(Date.now() / 10000) * 0.2);
+      const noise = (Math.random() - 0.5) * 0.1;
+      sentiment = Math.max(0, Math.min(1, baseValue + noise));
+      btcPrice = 43247 + (Math.random() - 0.5) * 1000;
+      ethPrice = 2543 + (Math.random() - 0.5) * 100;
+    }
 
     const sentimentData = await storage.createSentimentData({
       marketSentiment: sentiment,
-      btcPrice: 43247 + (Math.random() - 0.5) * 1000,
-      ethPrice: 2543 + (Math.random() - 0.5) * 100,
+      btcPrice: Math.round(btcPrice),
+      ethPrice: Math.round(ethPrice),
       solPrice: 98.32 + (Math.random() - 0.5) * 10,
       volume24h: 342.8 + (Math.random() - 0.5) * 50,
       activeTraders: 8429 + Math.floor((Math.random() - 0.5) * 1000),
