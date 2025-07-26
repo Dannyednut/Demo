@@ -1,5 +1,6 @@
 import { SENTIMENT_NFT_ABI, CONTRACT_ADDRESS, DEPLOYMENT_CONFIG, RARITY_TIERS } from './contract-abi';
 
+console.log(CONTRACT_ADDRESS);
 // Web3 integration supporting both mock mode and real smart contracts
 interface Web3Provider {
   request: (params: { method: string; params?: any[] }) => Promise<any>;
