@@ -750,7 +750,16 @@ export const DEPLOYMENT_CONFIG = {
 };
 
 // Set your deployed contract address here after deployment
-export const CONTRACT_ADDRESS = process.env.VITE_CONTRACT_ADDRESS || "";
+// export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '';
+
+// export const CONTRACT_ADDRESS: string | undefined =
+//   // Check if process is defined (Node.js environment) and then check process.env
+//   typeof process !== 'undefined' && process.env.CONTRACT_ADDRESS
+//     ? process.env.CONTRACT_ADDRESS
+//     // Check if import.meta is defined (Vite/browser environment) and then check import.meta.env
+//     : typeof import.meta !== 'undefined' && import.meta.env.VITE_CONTRACT_ADDRESS
+//     ? import.meta.env.VITE_CONTRACT_ADDRESS
+//     : undefined; // Fallback to undefined if not found in either
 
 // Rarity tier mappings
 export const RARITY_TIERS = {

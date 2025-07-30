@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,58 +8,65 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { SentimentChart } from "../components/ui/sentiment-chart";
 import { NftPreview } from "../components/ui/nft-preview";
-import { WalletModal } from "../components/ui/wallet-modal";
 import { MarketStats } from "../components/ui/market-stats";
+import { ContractStatus } from "../components/ui/contract-status";
 import { useWebSocket } from "../hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { TrendingUp, Users, Palette, Gem, Wallet } from "lucide-react";
+import { TrendingUp, Users, Palette, Gem, Wallet, Shield } from "lucide-react";
 import type { SentimentData, MarketActivity, Collection } from "@shared/schema";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover"; // or your own component
+
+import { Web3Service } from "@/lib/web3";
+
+// Create a frontend-specific instance of Web3Service with VITE_CONTRACT_ADDRESS
+
+const web3Service = new Web3Service(import.meta.env.VITE_CONTRACT_ADDRESS);
 
 export default function Dashboard() {
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [mintingProgress, setMintingProgress] = useState(0);
   const [isMinting, setIsMinting] = useState(false);
-  const [nftForm, setNftForm] = useState({
-    name: "",
-    description: ""
-  });
-
+  const [nftForm, setNftForm] = useState({ name: "", description: "" });
   const { toast } = useToast();
-
-  // WebSocket connection for real-time updates
   const { data: realtimeData } = useWebSocket('/ws');
 
-  // Fetch market overview
   const { data: marketData } = useQuery<SentimentData>({
     queryKey: ['/api/market/overview'],
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
   });
-
-  // Fetch recent activity
   const { data: recentActivity = [] } = useQuery<MarketActivity[]>({
     queryKey: ['/api/market/activity'],
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: 10000,
   });
-
-  // Fetch top collections
   const { data: topCollections = [] } = useQuery<Collection[]>({
     queryKey: ['/api/collections/top'],
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000,
   });
-
-  // Use real-time data if available, otherwise fall back to fetched data
   const currentMarketData = realtimeData?.data || marketData;
 
-  const handleWalletConnect = (address: string) => {
-    setWalletAddress(address);
-    setIsWalletModalOpen(false);
-    toast({
-      title: "Wallet Connected",
-      description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
-    });
-  };
+  useEffect(() => {
+    const connect = async () => {
+      try {
+        await web3Service.connectWallet();
+        const wallet = web3Service.getCurrentWallet();
+        setWalletAddress(wallet?.address || null);
+        if (wallet?.address) {
+          toast({
+            title: "Wallet Connected",
+            description: `Connected to ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
+          });
+        }
+      } catch (err) {
+        console.error("Wallet connection failed:", err);
+        toast({
+          title: "Connection Failed",
+          description: "Unable to connect to wallet.",
+          variant: "destructive",
+        });
+      }
+    };
+    connect();
+  }, [toast]);
 
   const handleMintNft = async () => {
     if (!walletAddress) {
@@ -81,55 +88,56 @@ export default function Dashboard() {
     }
 
     setIsMinting(true);
-    setMintingProgress(0);
 
     try {
-      // Simulate minting steps
-      const steps = [
-        { progress: 25, message: "Generating NFT metadata..." },
-        { progress: 50, message: "Uploading to IPFS..." },
-        { progress: 75, message: "Interacting with smart contract..." },
-        { progress: 100, message: "NFT minted successfully!" }
-      ];
-
-      for (let index = 0; index < steps.length; index++) {
-        const step = steps[index];
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setMintingProgress(step.progress);
-        
-        if (index === steps.length - 1) {
-          // Actually mint the NFT
-          await apiRequest('POST', '/api/nft/mint', {
-            name: nftForm.name,
-            description: nftForm.description,
-            ownerAddress: walletAddress,
-            imageUrl: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=800",
-            attributes: {
-              background: "Cosmic Blue",
-              pattern: "Neural Network",
-              mood: "Optimistic",
-              energy: "High"
-            }
-          });
-
-          toast({
-            title: "NFT Minted Successfully!",
-            description: `${nftForm.name} has been minted to your wallet`,
-          });
-
-          // Reset form
-          setNftForm({ name: "", description: "" });
-        }
+      //Update contract sentiment
+      const res = await web3Service.updateSentiment(
+        currentMarketData?.marketSentiment
+      )
+      setMintingProgress(25);
+      if (res.success) {
+          console.log("Sentiment Updated")
+      }else {
+          console.log("Unknown error: Unable to update sentiment before mint");
       }
-    } catch (error) {
+    
+      setMintingProgress(50);
+      // const result = await web3Service.mintNFT({
+      //   name: nftForm.name,
+      //   description: nftForm.description,
+      //   attributes: {
+      //     background: "Cosmic Blue",
+      //     pattern: "Neural Network",
+      //     mood: "Optimistic",
+      //     energy: "High"
+      //   }
+      // });
+      const result = await web3Service.mintNFT(
+        nftForm.name,
+        currentMarketData?.marketSentiment || 0.5,
+        0.01 + (currentMarketData?.marketSentiment || 0.5) * 0.49
+      )
+      setMintingProgress(75);
+      
+      if (result.success) {
+        setMintingProgress(100);
+        toast({
+          title: "NFT Minted Successfully!",
+          description: `Token ID: ${result.tokenId}`,
+        });
+        setNftForm({ name: "", description: "" });
+      } else {
+        throw new Error(result.error || "Unknown error");
+      }
+    } catch (err) {
       toast({
         title: "Minting failed",
         description: "There was an error minting your NFT",
         variant: "destructive",
       });
     } finally {
-      setIsMinting(false);
       setTimeout(() => setMintingProgress(0), 2000);
+      setIsMinting(false);
     }
   };
 
@@ -172,12 +180,32 @@ export default function Dashboard() {
             <div className="flex items-center space-x-4">
               <Button
                 variant="outline"
-                onClick={() => setIsWalletModalOpen(true)}
+                disabled//onClick={() => setIsWalletModalOpen(true)}
                 className="glass-card border-green-400/30 hover:border-green-400 text-green-400 hover:bg-green-400/10"
               >
                 <Wallet className="w-4 h-4 mr-2" />
                 {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "Connect Wallet"}
               </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="glass-card border-blue-400/30 hover:border-blue-400 text-blue-400 hover:bg-blue-400/10"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Status
+                  </Button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                  side="bottom"
+                  align="end"
+                  className="w-[400px] p-4 bg-slate-900 border border-blue-400/30 rounded-xl shadow-xl glass-card"
+                >
+                  <ContractStatus />
+                </PopoverContent>
+            </Popover>
+
             </div>
           </div>
         </div>
@@ -322,9 +350,9 @@ export default function Dashboard() {
                         <span className="text-white font-bold text-lg">
                           {(() => {
                             const sentiment = currentMarketData?.marketSentiment || 0.5;
-                            const sentimentMultiplier = 1 + (sentiment * 2);
+                            //const sentimentMultiplier = 1 + (sentiment * 2);
                             const basePrice = 0.01 + (sentiment * 0.49);
-                            return Number((basePrice * sentimentMultiplier).toFixed(4));
+                            return Number((basePrice).toFixed(4));
                           })()} ETH
                         </span>
                         <div className="text-right">
@@ -440,11 +468,11 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <WalletModal
+      {/* <WalletModal
         isOpen={isWalletModalOpen}
         onClose={() => setIsWalletModalOpen(false)}
         onConnect={handleWalletConnect}
-      />
+      /> */}
     </div>
   );
 }

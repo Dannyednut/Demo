@@ -33,9 +33,9 @@ export function NftPreview({ sentiment, calculatedPrice }: NftPreviewProps) {
   // Calculate dynamic price based on sentiment if not provided
   const getCalculatedPrice = (sentiment: number) => {
     if (calculatedPrice) return calculatedPrice;
-    const sentimentMultiplier = 1 + (sentiment * 2);
+    //const sentimentMultiplier = 1 + (sentiment * 2);
     const basePrice = 0.01 + (sentiment * 0.49);
-    return Number((basePrice * sentimentMultiplier).toFixed(4));
+    return Number((basePrice).toFixed(4));
   };
 
   return (

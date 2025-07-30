@@ -4,8 +4,15 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertNftSchema, insertSentimentDataSchema } from "@shared/schema";
 import { z } from "zod";
+// Import the realSentimentService
+import { realSentimentService } from '@/lib/real-sentiment';
+import { Web3Service } from '@/lib/web3'; // Import web3Service
+
+
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const web3Service = new Web3Service(process.env.VITE_CONTRACT_ADDRESS);
   const httpServer = createServer(app);
 
   // API Routes
@@ -85,6 +92,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- NEW: Initialize Web3Service for Oracle at startup ---
+  // Ensure these environment variables are set in your .env.local file
+  // e.g., ORACLE_PRIVATE_KEY="YOUR_PRIVATE_KEY_HERE"
+  //       RPC_URL="YOUR_ETHEREUM_RPC_URL_HERE" (e.g., from Infura, Alchemy, or a local node)
+  //       CONTRACT_ADDRESS="0xYourDeployedContractAddressHere" (for backend)
+  if (process.env.ORACLE_PRIVATE_KEY && process.env.RPC_URL && process.env.VITE_CONTRACT_ADDRESS) {
+    web3Service.initForOracle(
+      process.env.ORACLE_PRIVATE_KEY,
+      process.env.RPC_URL,
+      process.env.VITE_CONTRACT_ADDRESS // Pass CONTRACT_ADDRESS from Node.js env
+    )
+      .then(() => console.log("Web3Service successfully initialized for oracle operations."))
+      .catch(error => console.error("Failed to initialize Web3Service for oracle:", error));
+  } else {
+    console.warn("ORACLE_PRIVATE_KEY, RPC_URL, or CONTRACT_ADDRESS not set. Oracle sentiment updates will not function.");
+  }
+  // --- END NEW ---
+
   // WebSocket for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
@@ -108,35 +133,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let sentiment: number;
     let btcPrice: number;
     let ethPrice: number;
+    let solPrice: number;
 
     // Use real sentiment if enabled
     if (process.env.USE_REAL_SENTIMENT === 'true') {
       try {
-        // Fetch real sentiment data
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Calculate sentiment from price changes
-          const btcChange = data.bitcoin?.usd_24h_change || 0;
-          const ethChange = data.ethereum?.usd_24h_change || 0;
-          const avgChange = (btcChange + ethChange) / 2;
-          
-          // Convert price change to sentiment (0-1 scale)
-          sentiment = Math.max(0, Math.min(1, 0.5 + (avgChange / 20)));
-          btcPrice = data.bitcoin?.usd || 45000;
-          ethPrice = data.ethereum?.usd || 2800;
-        } else {
-          throw new Error('CoinGecko API not available');
-        }
+        // Fetch real sentiment data and prices from the realSentimentService
+        const realData = await realSentimentService.getRealWorldSentiment();
+        sentiment = realData.overall;
+        btcPrice = realData.btcPrice;
+        ethPrice = realData.ethPrice;
+        solPrice = realData.solPrice;
       } catch (error) {
-        console.warn('Using simulated sentiment data:', error);
-        // Fallback to simulation
+        console.warn('Failed to fetch real sentiment from realSentimentService, falling back to simulation:', error);
+        // Fallback to simulation if real sentiment service fails
         const baseValue = 0.6 + (Math.sin(Date.now() / 10000) * 0.2);
         const noise = (Math.random() - 0.5) * 0.1;
         sentiment = Math.max(0, Math.min(1, baseValue + noise));
         btcPrice = 43247 + (Math.random() - 0.5) * 1000;
         ethPrice = 2543 + (Math.random() - 0.5) * 100;
+        solPrice = 100 + (Math.random() - 0.5) * 10; // Simulated Solana price
       }
     } else {
       // Use simulated data (default)
@@ -145,19 +161,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       sentiment = Math.max(0, Math.min(1, baseValue + noise));
       btcPrice = 43247 + (Math.random() - 0.5) * 1000;
       ethPrice = 2543 + (Math.random() - 0.5) * 100;
+      solPrice = 100 + (Math.random() - 0.5) * 10; // Simulated Solana price
     }
 
+    // Create sentiment data to store and broadcast
     const sentimentData = await storage.createSentimentData({
       marketSentiment: sentiment,
       btcPrice: Math.round(btcPrice),
       ethPrice: Math.round(ethPrice),
-      solPrice: 98.32 + (Math.random() - 0.5) * 10,
+      solPrice: Math.round(solPrice),
+      // These values are still simulated as real-sentiment.ts doesn't provide them
       volume24h: 342.8 + (Math.random() - 0.5) * 50,
       activeTraders: 8429 + Math.floor((Math.random() - 0.5) * 1000),
       nftsMinted: 1247 + Math.floor(Math.random() * 100),
     });
 
-    // Broadcast to all connected clients
+    // Broadcast to all connected WebSocket clients
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify({

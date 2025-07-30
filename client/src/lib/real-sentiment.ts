@@ -20,6 +20,14 @@ interface FearGreedData {
   timestamp: string;
 }
 
+// New interface to return sentiment and crypto prices
+interface CryptoSentimentAndPrices {
+  sentiment: number;
+  btcPrice: number;
+  ethPrice: number;
+  solPrice: number;
+}
+
 class RealSentimentService {
   private static instance: RealSentimentService;
   private cacheTTL = 5 * 60 * 1000; // 5 minutes
@@ -53,10 +61,11 @@ class RealSentimentService {
   }
 
   /**
-   * Fetch crypto prices from CoinGecko API
+   * Fetch crypto prices from CoinGecko API and calculate sentiment from them.
+   * Now also returns the raw prices.
    */
-  private async fetchCryptoPrices(): Promise<number> {
-    return this.fetchWithCache('crypto-prices', async () => {
+  private async fetchCryptoPrices(): Promise<CryptoSentimentAndPrices> {
+    return this.fetchWithCache('crypto-prices-and-sentiment', async () => {
       const response = await fetch(
         'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,cardano,solana,polygon&vs_currencies=usd&include_24hr_change=true'
       );
@@ -67,7 +76,7 @@ class RealSentimentService {
       
       const data = await response.json();
       
-      // Calculate weighted sentiment based on major crypto performance
+      // Cryptocurrencies to consider for weighted sentiment
       const cryptos = [
         { symbol: 'bitcoin', weight: 0.4 },
         { symbol: 'ethereum', weight: 0.3 },
@@ -79,11 +88,16 @@ class RealSentimentService {
       let weightedSentiment = 0;
       let totalWeight = 0;
       
+      // Initialize prices with default values in case data is missing
+      let btcPrice = data.bitcoin?.usd || 0;
+      let ethPrice = data.ethereum?.usd || 0;
+      let solPrice = data.solana?.usd || 0;
+
       for (const crypto of cryptos) {
         const priceData = data[crypto.symbol];
         if (priceData && priceData.usd_24h_change !== undefined) {
           // Convert 24h change to sentiment (0-1 scale)
-          // -10% = 0, 0% = 0.5, +10% = 1
+          // -10% change = 0 sentiment, 0% change = 0.5 sentiment, +10% change = 1 sentiment
           const change = priceData.usd_24h_change;
           const sentiment = Math.max(0, Math.min(1, 0.5 + (change / 20)));
           
@@ -92,7 +106,12 @@ class RealSentimentService {
         }
       }
       
-      return totalWeight > 0 ? weightedSentiment / totalWeight : 0.5;
+      return {
+        sentiment: totalWeight > 0 ? weightedSentiment / totalWeight : 0.5,
+        btcPrice,
+        ethPrice,
+        solPrice
+      };
     });
   }
 
@@ -159,7 +178,8 @@ class RealSentimentService {
   }
 
   /**
-   * Get aggregated real-world sentiment
+   * Get aggregated real-world sentiment and crypto prices.
+   * This is the main method to be called by routes.ts for real data.
    */
   async getRealWorldSentiment(): Promise<{
     overall: number;
@@ -168,13 +188,17 @@ class RealSentimentService {
       fearGreed: number;
       news: number;
     };
+    btcPrice: number;
+    ethPrice: number;
+    solPrice: number;
     timestamp: number;
   }> {
+    // Define sentiment sources and their weights
     const sources: SentimentSource[] = [
       {
         name: 'crypto',
         weight: 0.5,
-        fetchSentiment: () => this.fetchCryptoPrices()
+        fetchSentiment: async () => (await this.fetchCryptoPrices()).sentiment // Only pass sentiment from crypto prices
       },
       {
         name: 'fearGreed',
@@ -188,6 +212,16 @@ class RealSentimentService {
       }
     ];
 
+    // Fetch crypto prices separately to get the raw prices for the return object
+    let cryptoPricesData: CryptoSentimentAndPrices = { sentiment: 0.5, btcPrice: 0, ethPrice: 0, solPrice: 0 };
+    try {
+      cryptoPricesData = await this.fetchCryptoPrices();
+    } catch (error) {
+      console.warn('Failed to fetch initial crypto prices for real-sentiment aggregation:', error);
+      // If fetching crypto prices fails, use default/zero values
+    }
+
+    // Fetch sentiment from all defined sources concurrently
     const results = await Promise.allSettled(
       sources.map(async source => ({
         name: source.name,
@@ -198,7 +232,7 @@ class RealSentimentService {
 
     let weightedSentiment = 0;
     let totalWeight = 0;
-    const sourceResults: any = {};
+    const sourceResults: { [key: string]: number } = {}; // Explicitly type sourceResults
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
@@ -213,12 +247,15 @@ class RealSentimentService {
       }
     });
 
-    // Fallback to neutral if all sources failed
+    // Fallback to neutral if all sources failed to contribute weight
     const overall = totalWeight > 0 ? weightedSentiment / totalWeight : 0.5;
 
     return {
       overall: Math.max(0, Math.min(1, overall)),
-      sources: sourceResults,
+      sources: sourceResults as { crypto: number; fearGreed: number; news: number }, // Type assertion
+      btcPrice: cryptoPricesData.btcPrice,
+      ethPrice: cryptoPricesData.ethPrice,
+      solPrice: cryptoPricesData.solPrice,
       timestamp: Date.now()
     };
   }

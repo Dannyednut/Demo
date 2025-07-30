@@ -2,8 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { web3Service } from '@/lib/web3';
+// Import the Web3Service CLASS
+import { Web3Service } from '@/lib/web3';
 import { Copy, ExternalLink, Zap, Shield } from 'lucide-react';
+
+// Create a frontend-specific instance of Web3Service with VITE_CONTRACT_ADDRESS
+const web3Service = new Web3Service(import.meta.env.VITE_CONTRACT_ADDRESS);
+
 
 export function ContractStatus() {
   const [contractData, setContractData] = useState<{
@@ -12,12 +17,16 @@ export function ContractStatus() {
     mintPrice: string;
   } | null>(null);
   const [isMockMode, setIsMockMode] = useState(true);
-  const [contractAddress, setContractAddress] = useState('');
+  // Initialize with an empty string or a suitable default
+  const [contractAddress, setContractAddress] = useState(''); 
 
   useEffect(() => {
     const checkContractStatus = async () => {
       setIsMockMode(web3Service.isMockMode());
-      setContractAddress(web3Service.getContractAddress());
+      
+      // Safely get contract address, providing an empty string as fallback if undefined
+      const address = web3Service.getContractAddress() || ''; 
+      setContractAddress(address);
       
       if (!web3Service.isMockMode()) {
         try {
@@ -33,14 +42,30 @@ export function ContractStatus() {
     const interval = setInterval(checkContractStatus, 30000); // Update every 30 seconds
     
     return () => clearInterval(interval);
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+    // navigator.clipboard.writeText(text); // Use document.execCommand('copy') for better iframe compatibility
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        // Optionally, add a toast notification for success
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+        // Optionally, add a toast notification for failure
+    }
+    document.body.removeChild(textarea);
   };
 
   const openEtherscan = () => {
+    // Ensure contractAddress is not empty and not in mock mode before opening
     if (contractAddress && !isMockMode) {
+      // You might need to dynamically determine the correct Etherscan URL based on the connected network.
+      // For now, assuming Ethereum Mainnet or a generic EVM explorer.
+      // You could extend Web3Service to return the current chain ID/network name for a more accurate URL.
       window.open(`https://etherscan.io/address/${contractAddress}`, '_blank');
     }
   };
