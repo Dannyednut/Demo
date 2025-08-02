@@ -47,8 +47,8 @@ export default function Dashboard() {
   useEffect(() => {
     const connect = async () => {
       try {
-        await web3Service.connectWallet();
-        const wallet = web3Service.getCurrentWallet();
+        
+        const wallet = await web3Service.connectWallet();
         setWalletAddress(wallet?.address || null);
         if (wallet?.address) {
           toast({
@@ -90,11 +90,11 @@ export default function Dashboard() {
     setIsMinting(true);
 
     try {
+      setMintingProgress(25);
       //Update contract sentiment
       const res = await web3Service.updateSentiment(
         currentMarketData?.marketSentiment
       )
-      setMintingProgress(25);
       if (res.success) {
           console.log("Sentiment Updated")
       }else {

@@ -1,3 +1,7 @@
+import {Web3Service} from '@/lib/web3';
+
+const web3Service = new Web3Service(import.meta.env.VITE_CONTRACT_ADDRESS);
+
 interface NftPreviewProps {
   sentiment: number;
   calculatedPrice?: number;
@@ -38,14 +42,30 @@ export function NftPreview({ sentiment, calculatedPrice }: NftPreviewProps) {
     return Number((basePrice).toFixed(4));
   };
 
+  // Generate dynamic SVG for the NFT
+  const generateDynamicSVG = (sentiment: number) => {
+    try {
+      return web3Service.generatePreviewSVG(sentiment);
+    } catch (error) {
+      console.error('Error generating SVG:', error);
+      return `<svg width="400" height="400"><rect width="400" height="400" fill="#1f2937"/><text x="200" y="200" text-anchor="middle" fill="white">Loading...</text></svg>`;
+    }
+  };
+
   return (
     <div className="relative aspect-square bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden animate-float">
-      <img
+      {/* <img
         src="https://images.unsplash.com/photo-1639762681485-074b7f938ba0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=800"
         alt="Dynamic blockchain visualization"
         className="w-full h-full object-cover"
         style={{
           filter: `hue-rotate(${sentiment * 360}deg) saturate(${0.8 + sentiment * 0.4}) brightness(${0.7 + sentiment * 0.3})`
+        }}
+      /> */}
+      <div 
+        className="w-full h-full object-cover"
+        dangerouslySetInnerHTML={{ 
+          __html: generateDynamicSVG(sentiment)
         }}
       />
       

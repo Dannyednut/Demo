@@ -102,9 +102,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       process.env.ORACLE_PRIVATE_KEY,
       process.env.RPC_URL,
       process.env.VITE_CONTRACT_ADDRESS // Pass CONTRACT_ADDRESS from Node.js env
-    )
-      .then(() => console.log("Web3Service successfully initialized for oracle operations."))
-      .catch(error => console.error("Failed to initialize Web3Service for oracle:", error));
+    );
+    console.log("Web3Service successfully initialized for oracle operations.");
   } else {
     console.warn("ORACLE_PRIVATE_KEY, RPC_URL, or CONTRACT_ADDRESS not set. Oracle sentiment updates will not function.");
   }
